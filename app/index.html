@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Churn predictor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #eef1f4;
+    --panel: #ffffff;
+    --ink: #14212b;
+    --muted: #5d6b77;
+    --line: #d3dae0;
+    --up: #c0264b;      /* raises churn risk */
+    --down: #0f766e;    /* lowers churn risk */
+    --accent: #14212b;
+    --track: #e3e8ec;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #10181f;
+      --panel: #18232c;
+      --ink: #e8eef2;
+      --muted: #93a1ad;
+      --line: #2b3a46;
+      --up: #ff6b8b;
+      --down: #4fd1c5;
+      --accent: #e8eef2;
+      --track: #26333d;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Schibsted Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.5;
+  }
+  main {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 2.5rem 1.25rem 4rem;
+  }
+  h1 { font-size: 2rem; line-height: 1.15; margin: 0 0 .4rem; letter-spacing: -0.02em; }
+  .lede { margin: 0 0 2rem; color: var(--muted); max-width: 56ch; }
+
+  .layout { display: grid; gap: 1.5rem; grid-template-columns: 1fr; }
+  @media (min-width: 860px) {
+    .layout { grid-template-columns: 1.1fr 1fr; align-items: start; }
+    .result { position: sticky; top: 1.5rem; }
+  }
+
+  fieldset { border: 0; padding: 0; margin: 0 0 1.5rem; }
+  legend { font-weight: 700; font-size: 1.05rem; padding: 0; margin-bottom: .6rem; }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .75rem 1rem; }
+  .grid .wide { grid-column: 1 / -1; }
+  label { display: block; font-size: .9rem; color: var(--muted); }
+  input, select {
+    display: block; width: 100%;
+    margin-top: .25rem;
+    padding: .55rem .6rem;
+    font: inherit; color: var(--ink);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+  }
+  input:focus-visible, select:focus-visible, button:focus-visible {
+    outline: 3px solid var(--down);
+    outline-offset: 1px;
+  }
+  button {
+    font: inherit; font-weight: 700;
+    padding: .75rem 1.4rem;
+    color: var(--bg); background: var(--accent);
+    border: 0; border-radius: 6px; cursor: pointer;
+  }
+  button:disabled { opacity: .6; cursor: progress; }
+
+  .result {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1.5rem;
+    min-height: 16rem;
+  }
+  .empty { color: var(--muted); margin: 0; }
+  .verdict { font-size: 1.5rem; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+  .prob { margin: .2rem 0 1rem; color: var(--muted); }
+  .prob strong { color: var(--ink); font-size: 2.6rem; letter-spacing: -0.03em; }
+
+  .gauge { height: 12px; background: var(--track); border-radius: 6px; overflow: hidden; }
+  .gauge > span { display: block; height: 100%; width: 0; background: var(--down); transition: width .5s ease, background-color .3s; }
+  @media (prefers-reduced-motion: reduce) { .gauge > span { transition: none; } }
+
+  h2 { font-size: 1.05rem; margin: 1.75rem 0 .2rem; }
+  .hint { margin: 0 0 .9rem; font-size: .88rem; color: var(--muted); }
+
+  .factor { display: grid; grid-template-columns: 9.5rem 1fr; align-items: center; gap: .6rem; margin: .45rem 0; font-size: .9rem; }
+  .factor .name { overflow-wrap: anywhere; }
+  .bar { position: relative; height: 16px; }
+  .bar::before { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--line); }
+  .bar > span { position: absolute; top: 0; height: 100%; border-radius: 3px; }
+  .bar > span.up { left: 50%; background: var(--up); }
+  .bar > span.down { right: 50%; background: var(--down); }
+  .axis { display: flex; justify-content: space-between; font-size: .8rem; color: var(--muted); margin-top: .5rem; }
+  .error { color: var(--up); margin: 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Will this customer leave the bank?</h1>
+  <p class="lede">Enter a customer's details to get a churn probability and see which details pushed the prediction up or down.</p>
+
+  <div class="layout">
+    <form id="f" novalidate>
+      <fieldset>
+        <legend>Customer</legend>
+        <div class="grid">
+          <label>Age <input name="Age" type="number" min="18" max="100" value="42" required></label>
+          <label>Gender
+            <select name="Gender"><option>Female</option><option>Male</option></select></label>
+          <label class="wide">Country
+            <select name="Geography"><option>France</option><option>Germany</option><option>Spain</option></select></label>
+          <label>Credit score <input name="CreditScore" type="number" min="300" max="900" value="619" required></label>
+          <label>Estimated salary <input name="EstimatedSalary" type="number" step="0.01" min="0" value="101348.88" required></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Account</legend>
+        <div class="grid">
+          <label>Balance <input name="Balance" type="number" step="0.01" min="0" value="0" required></label>
+          <label>Years as a customer <input name="Tenure" type="number" min="0" max="50" value="2" required></label>
+          <label>Number of products <input name="NumOfProducts" type="number" min="1" max="4" value="1" required></label>
+          <label>Card type
+            <select name="CardType"><option>DIAMOND</option><option>GOLD</option><option>SILVER</option><option>PLATINUM</option></select></label>
+          <label>Points earned <input name="PointEarned" type="number" min="0" value="464" required></label>
+          <label>Has a credit card
+            <select name="HasCrCard"><option value="1">Yes</option><option value="0">No</option></select></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Engagement</legend>
+        <div class="grid">
+          <label>Active member
+            <select name="IsActiveMember"><option value="1">Yes</option><option value="0">No</option></select></label>
+          <label>Satisfaction score
+            <select name="SatisfactionScore">
+              <option value="1">1 (lowest)</option><option value="2">2</option><option value="3" selected>3</option>
+              <option value="4">4</option><option value="5">5 (highest)</option>
+            </select></label>
+        </div>
+      </fieldset>
+
+      <button type="submit" id="go">Predict churn</button>
+    </form>
+
+    <section class="result" id="result" aria-live="polite">
+      <p class="empty">Fill in the customer's details and select Predict churn.</p>
+    </section>
+  </div>
+</main>
+
+<script>
+  // Field names here must match the CustomerInput fields in app.py exactly.
+  const INT_FIELDS = ["CreditScore", "Age", "Tenure", "NumOfProducts", "HasCrCard",
+                      "IsActiveMember", "SatisfactionScore", "PointEarned"];
+  const FLOAT_FIELDS = ["Balance", "EstimatedSalary"];
+
+  const form = document.getElementById("f");
+  const result = document.getElementById("result");
+  const button = document.getElementById("go");
+
+  // "Geography_Germany" -> "Geography: Germany"
+  const prettify = (name) => name.replace(/_/g, ": ");
+
+  function render(j) {
+    const pct = j.prediction_probability * 100;
+    const likely = j.prediction.toLowerCase().includes("churn");
+
+    const entries = Object.entries(j.explanation)
+      .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+      .slice(0, 6);
+    const max = Math.max(...entries.map(([, v]) => Math.abs(v)), 1e-9);
+
+    const rows = entries.map(([name, v]) => {
+      const width = (Math.abs(v) / max) * 50;           // each side of the axis is 50%
+      const cls = v > 0 ? "up" : "down";
+      const title = `${prettify(name)}: ${v > 0 ? "raises" : "lowers"} churn risk (${v.toFixed(3)})`;
+      return `<div class="factor" title="${title}">
+                <span class="name">${prettify(name)}</span>
+                <div class="bar"><span class="${cls}" style="width:${width}%"></span></div>
+              </div>`;
+    }).join("");
+
+    result.innerHTML = `
+      <p class="verdict">${j.prediction}</p>
+      <p class="prob"><strong>${pct.toFixed(1)}%</strong> chance of churning</p>
+      <div class="gauge" role="img" aria-label="Churn probability ${pct.toFixed(1)} percent">
+        <span id="fill"></span>
+      </div>
+      <h2>What drove this prediction</h2>
+      <p class="hint">Bars to the right raise the churn risk for this customer. Bars to the left lower it.</p>
+      ${rows}
+      <div class="axis"><span>Lowers risk</span><span>Raises risk</span></div>`;
+
+    const fill = document.getElementById("fill");
+    fill.style.background = likely ? "var(--up)" : "var(--down)";
+    requestAnimationFrame(() => { fill.style.width = pct + "%"; });
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!form.reportValidity()) return;
+
+    const data = Object.fromEntries(new FormData(form));
+    INT_FIELDS.forEach(k => data[k] = parseInt(data[k], 10));
+    FLOAT_FIELDS.forEach(k => data[k] = parseFloat(data[k]));
+
+    button.disabled = true;
+    button.textContent = "Predicting…";
+    try {
+      const r = await fetch("/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+      if (!r.ok) throw new Error(r.status === 422
+        ? "One of the values is outside the accepted range."
+        : "The server could not make a prediction.");
+      render(await r.json());
+    } catch (err) {
+      result.innerHTML = `<p class="error">${err.message} Check the values and try again.</p>`;
+    } finally {
+      button.disabled = false;
+      button.textContent = "Predict churn";
+    }
+  });
+</script>
+</body>
+</html>
