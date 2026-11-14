@@ -29,7 +29,6 @@ class CustomerInput(BaseModel):
     PointEarned: int
     
 model = joblib.load(ROOT_DIR / "model" / "best_model_f1.pkl")
-classifier = model.named_steps['classifier']
 preprocessor = model.named_steps['preprocessor']
 
 explainer = shap.TreeExplainer(model.named_steps['classifier'])
