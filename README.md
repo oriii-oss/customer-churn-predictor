@@ -56,11 +56,11 @@ All of this is in [`model/EDA.ipynb`](model/EDA.ipynb).
 
 | Model | Accuracy | Precision (churn) | Recall (churn) | F1 (churn) |
 |---|---|---|---|---|
-| Logistic Regression (validation) | _fill in_ | _fill in_ | _fill in_ | _fill in_ |
-| Random Forest (validation) | _fill in_ | _fill in_ | _fill in_ | _fill in_ |
-| XGBoost (validation) | _fill in_ | _fill in_ | _fill in_ | _fill in_ |
-| Tuned Random Forest, F1 (validation) | _fill in_ | _fill in_ | _fill in_ | _fill in_ |
-| **Tuned Random Forest, F1 (test)** | _fill in_ | _fill in_ | _fill in_ | _fill in_ |
+| Logistic Regression (validation) | 0.8121 | 0.61 | 0.22 | 0.33 |
+| Random Forest (validation) | 0.8717 | 0.84 | 0.46 | 0.59 |
+| XGBoost (validation) | 0.8545 | 0.72 | 0.47 | 0.57 |
+| Tuned Random Forest, F1 (validation) | 0.8374 | 0.60 | 0.63 | 0.61 |
+| **Tuned Random Forest, F1 (test)** | 0.8210 | 0.55 | 0.67 | 0.60 |
 
 
 ## Project structure
